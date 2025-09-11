@@ -96,3 +96,4 @@ npm run test:coverage
 - **Silent logging** in tests (LOG_LEVEL=silent) to reduce noise
 - **Random ports** for server tests to avoid conflicts
 - **Proper cleanup** of resources and processes in tests
+- 永远用中文和我交流和输出文档
