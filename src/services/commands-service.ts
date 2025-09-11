@@ -50,7 +50,8 @@ function scanCommandsRecursive(baseDir: string, currentDir: string = ''): Comman
         // Convert file path to command name
         // Remove .md extension and prepend with /
         const commandPath = entryPath.slice(0, -3); // Remove .md
-        const commandName = '/' + commandPath.replace(/\\/g, '/'); // Normalize path separators
+        // Use colons as separators for nested commands (Claude Code format)
+        const commandName = '/' + commandPath.replace(/[/\\]/g, ':');
         commands.push({ name: commandName, type: 'custom' });
       }
     }
