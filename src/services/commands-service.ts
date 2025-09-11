@@ -26,6 +26,45 @@ export function getBuiltinCommands(): Command[] {
 }
 
 /**
+ * Recursively scan directory for .md files and return command entries
+ */
+function scanCommandsRecursive(baseDir: string, currentDir: string = ''): Command[] {
+  const commands: Command[] = [];
+  const fullPath = path.join(baseDir, currentDir);
+  
+  try {
+    if (!fs.existsSync(fullPath)) {
+      return commands;
+    }
+    
+    const entries = fs.readdirSync(fullPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const entryPath = path.join(currentDir, entry.name);
+      
+      if (entry.isDirectory()) {
+        // Recursively scan subdirectories
+        const subCommands = scanCommandsRecursive(baseDir, entryPath);
+        commands.push(...subCommands);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        // Convert file path to command name
+        // Remove .md extension and prepend with /
+        const commandPath = entryPath.slice(0, -3); // Remove .md
+        const commandName = '/' + commandPath.replace(/\\/g, '/'); // Normalize path separators
+        commands.push({ name: commandName, type: 'custom' });
+      }
+    }
+  } catch (error) {
+    logger.warn('Failed to scan commands directory recursively', {
+      error: error instanceof Error ? error.message : String(error),
+      path: fullPath
+    });
+  }
+  
+  return commands;
+}
+
+/**
  * Get custom commands from .claude/commands/ directories
  */
 export function getCustomCommands(workingDirectory?: string): Command[] {
@@ -34,14 +73,9 @@ export function getCustomCommands(workingDirectory?: string): Command[] {
   // Always check global directory
   const globalDir = path.join(os.homedir(), '.claude', 'commands');
   try {
-    if (fs.existsSync(globalDir)) {
-      const files = fs.readdirSync(globalDir);
-      for (const file of files) {
-        if (file.endsWith('.md')) {
-          const commandName = '/' + file.slice(0, -3); // Remove .md extension
-          commands.set(commandName, { name: commandName, type: 'custom' });
-        }
-      }
+    const globalCommands = scanCommandsRecursive(globalDir);
+    for (const command of globalCommands) {
+      commands.set(command.name, command);
     }
   } catch (error) {
     logger.warn('Failed to read global commands directory', { 
@@ -54,15 +88,10 @@ export function getCustomCommands(workingDirectory?: string): Command[] {
   if (workingDirectory) {
     const localDir = path.join(workingDirectory, '.claude', 'commands');
     try {
-      if (fs.existsSync(localDir)) {
-        const files = fs.readdirSync(localDir);
-        for (const file of files) {
-          if (file.endsWith('.md')) {
-            const commandName = '/' + file.slice(0, -3); // Remove .md extension
-            // Local commands override global ones
-            commands.set(commandName, { name: commandName, type: 'custom' });
-          }
-        }
+      const localCommands = scanCommandsRecursive(localDir);
+      for (const command of localCommands) {
+        // Local commands override global ones
+        commands.set(command.name, command);
       }
     } catch (error) {
       logger.warn('Failed to read local commands directory', { 
